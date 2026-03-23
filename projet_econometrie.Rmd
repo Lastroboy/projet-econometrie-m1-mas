@@ -1,0 +1,1048 @@
+---
+title: "Projet d'économétrie"  
+date: "`r Sys.Date()`"
+output:
+  rmdformats::robobook:
+    highlight: kate
+    number_sections: TRUE
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE) #Activer le cache des chunks pour accélérer les recompilations
+options("install.lock"=FALSE) #Désactiver le verrouillage d’installation des packages
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path)) ## configure le chemin du dossier automatiquement
+```
+
+**DELAPORTE - Noa**
+
+**SCALART - Sarah**
+
+**Master 1 MAS - Université Rennes**
+
+La rédaction de ce document a bénéficié, en partie, de l’aide d’une IA générative.
+
+# Introduction
+
+Le cancer du sein est une pathologie d'une grande hétérogénéité, dont le pronostic vital et la durée de survie sont liés à une combinaison de facteurs biologiques, cliniques (caractéristiques tumorales) et socio-démographiques propres à la patiente.
+
+Cette étude vise à quantifier, par une approche économétrique, l'influence de ces déterminants sur la durée de survie de la tumeur (en mois) des patientes diagnostiquées. Nous nous appuyons pour cela sur un jeu de données extrait de la plateforme Kaggle, intégrant des informations clés telles que l'âge au diagnostic, le statut matrimonial, le stade et le grade de la tumeur, ainsi que des marqueurs biologiques (statut des récepteurs aux œstrogènes et à la progestérone).
+
+Notre question de recherche est : **Quels sont les facteurs cliniques, socio-démographiques et biologiques qui influencent la durée de survie de la tumeur des patients atteints d'un cancer du sein ?**
+
+L'objectif principal est d'estimer un modèle de régression capable de quantifier l'effet marginal de chaque facteur sur la survie, apportant ainsi un éclairage sur le pronostic.
+
+Le plan présenté servira de cadre pour le développement du projet :
+
+1.  Introduction
+2.  Cadre méthodologique
+3.  Analyse des données
+4.  Analyse et discussion des résultats
+5.  Conclusion générale et perspectives
+6.  Bibliographie - Sources des données
+
+## Hypothèses
+
+Basé sur la littérature médicale et notre réfléxion :
+
+-   **Facteurs Tumoraux Négatifs :** Nous anticipons une relation inverse entre la survie et l'agressivité de la tumeur. Un stade clinique avancé (*`X6th Stage`*), une taille tumorale élevée (*`Tumor Size`*), et un envahissement ganglionnaire important (*`Reginol_Node_Positive`*) sont associés à une survie réduite.
+
+-   **Facteurs Biologiques et Pronostic :** Les patientes dont la tumeur exprime positivement les récepteurs hormonaux (ER+ ou PR+) sont attendues à présenter une meilleure survie en raison de l'efficacité potentielle des traitements hormonaux.
+
+-   **Facteurs Démographiques :** L'âge avancé au diagnostic est susceptible d'être corrélé à une survie plus courte. Par ailleurs, nous faisons l'hypothèse qu'un statut matrimonial stable pourrait conférer un avantage en termes de survie (effet du soutien social).
+
+La variable dépendante à expliquer ($Y$) est la durée de survie de la tumeur en mois (*`Survival Months`*), et les variables explicatives ($X_{k}$) sont l'ensemble des facteurs biologiques, cliniques et socio-démographiques retenus.
+
+# Cadre méthodologique
+
+Nous avons utilisé en partie l'IA pour guider nos choix techniques et sélectionner les modèles à comparer.
+
+L’objectif de ce travail est d’identifier les facteurs sociodémographiques et cliniques qui influencent la durée de survie (en mois) de la tumeur de patientes atteintes d’un cancer du sein. Nous adoptons le cadre de la régression linéaire multiple.
+
+## Justification du choix :
+
+La variable dépendante étant quantitative, une première approche naturelle consiste à utiliser un modèle de régression linéaire estimé par la méthode des Moindres Carrés Ordinaires (MCO). Cette méthode constitue un point de départ standard pour mesurer l'effet marginal des variables explicatives sur une variable continue. Cela permet également de proposer une interprétation simple, intuitive et communicable des coefficients estimés.
+
+La relation entre la survie et les facteurs explicatifs est formalisée par l'équation de régression linéaire multiple :
+
+$Y_i = \beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i} + \cdots + \beta_k X_{ki} + \varepsilon_i$
+
+-   **Variable Dépendante** ($Y_i$​) : Survival Months (Durée de survie de la tumeur en mois).
+
+-   **Variables Explicatives** ($X_{ki}$​) : L'ensemble des facteurs retenus (Âge, Taille de la tumeur, Stade clinique, Grade, Statut ER/PR, etc.).
+
+-   **Coefficients** ($\beta_k$​) : Coefficients de régression à estimer, elles représentent l'effet moyen d'une variation de la variable explicative $X_{k}$​ sur la variable dépendante $Y$.
+
+-   **Terme d'Erreur** ($\varepsilon_i$​) : Représente les facteurs non observés, terme d’erreur aléatoire, supposé centré et de variance constante.
+
+## Spécification des variables
+
+-   **Traitement des variables qualitatives** **(catégorielles)** : Les variables telles que *Marital Status*, *X6th Stage*, *Grade*, *Estrogen Status* seront transformées en variables binaires / muettes.
+-   **Variable dépendante** ($Y_i$​) : *`Survival Months`* durée de vie de la tumeur en mois. Cette variable est utilisée directement comme variable à expliquer.
+-   **Variables explicatives** ($X_{ki}$​) : Âge, taille tumorale, grade histologique, stade clinique (stage global), statut des récepteurs hormonaux (ER, PR), nombre de ganglions positifs, variables socio-démographiques (statut marital).
+
+Chaques $\beta_k$ s'interprète comme le nombre de mois supplémentaires (ou en moins) associés à une augmentation de $X_{k}$.
+
+## Stratégie d'estimation
+
+L'application de la méthode des MCO sur les données cliniques et sociodémographiques nécessite des choix pour garantir la validité et l'interprétabilité des résultats. Après avoir appliqué la régression au modèle grâce à la fonction lm, nous pourrons interpréter les résultats.
+
+Nous allons donc comparer 4 modèles différents :
+
+-   **Modèle A — MCO linéaire complet :** (équation faite ci-dessus), estimation de l'effet marginal de tous les facteurs.
+
+-   **Modèle B — LogMCO** : Correction de l'asymétrie. La transformation logarithmique de la variable dépendante log(Survival Months) vise à normaliser la distribution et à stabiliser la variance log(Y) qui est moins sensible aux valeurs extrêmes, améliorant la validité des tests statistiques du MCO.
+
+-   **Modèle C — MCO réduit (variables cliniques seules)** : Ce modèle sert de référence clinique. Sa comparaison avec le Modèle A (via le R2 ajusté ou un test F) permet de déterminer si l'ajout des variables socio-démographiques apporte une information significative pour la prédiction de la survie, au-delà des facteurs purement médicaux.
+
+-   **Modèle D** - Modèle ajusté en fonction des résultats
+
+# Analyse des données
+
+## Cadre des données
+
+L’ensemble de données utilisé dans cette étude porte sur des patientes atteintes d’un cancer du sein provenant du site Kaggle. Ce jeu de données provient de la mise à jour de novembre 2017 du programme SEER du National Cancer Institute (NCI), une référence majeure pour les statistiques de santé publique aux États-Unis. Le jeu de données rassemble exclusivement des cas de cancer du sein diagnostiqués sur la période 2006-2010. Les patientes présentant une absence d’information sur la taille tumorale, des données manquantes sur les ganglions lymphatiques ou une survie inférieure à un mois présentant ont été exclues. De plus, certaines modalités de variables ont été suprimmées dans la version de Kaggle.
+
+L'échantillon final compte 4 024 patientes anonymisées. Ce corpus constitue ainsi une base solide pour analyser les caractéristiques cliniques et les facteurs associés à la survie dans ce type de cancer du sein.
+
+### Période de temps
+
+La base de données **couvre la période** **2006-2010**, années durant lesquelles les patientes ont été diagnostiquées d’un carcinome mammaire infiltrant, avec une **mise à jour réalisée en 2017**. Le suivi de survie associé s’étend d’**1 à 107 mois** selon les patientes, ce qui permet d’observer l’évolution de la maladie sur une durée variable mais suffisamment longue pour analyser les facteurs influençant le pronostic.
+
+### Secteur géographique
+
+Les données proviennent **d’un échantillon de patientes aux États-Unis**. Cette information est importante pour contextualiser les résultats et limiter les généralisations à d’autres populations.
+
+### Individus utilisés
+
+L’échantillon est composé de **4 024 patientes** diagnostiquées avec un cancer du sein. Les critères d’inclusion ne sont pas détaillés dans la documentation, mais ils reposent vraisemblablement sur des cas confirmés et disposant d’un suivi clinique complet. Les exclusions appliquées, présentées précédemment, garantissent un ensemble de données cohérent et exploitable pour l’analyse.
+
+### Explication des variables utilisées
+
+Le **jeu de données initial comportait** **16 variables** décrivant des caractéristiques démographiques, tumorales et cliniques des patientes. Pour garantir la pertinence statistique de notre analyse et éviter les problèmes de multicolinéarité, nous avons choisi de réduire cet ensemble à **9 variables essentielles** : *`Age`*, *`Marital.Status`*, *`X6th.Stage`*, *`Grade`*, *`Tumor.Size`*, *`Estrogen.Status`*, *`Progesterone.Status`*, *`Reginol.Node.Positive`* et *`Survival.Months`*.
+
+Ce choix s’explique par la nécessité de conserver les variables les plus informatives pour l’étude de la survie de la tumeur, sans multiplier les indicateurs décrivant une même dimension clinique ou biologique. Des variables telles que *`Differentiate`* ou *`A.Stage`*, fortement corrélées avec *`Grade`* ou *`X6th.Stage`*, ont été retirées afin de limiter les redondances et de préserver la robustesse du modèle.
+
+Certains choix d’exclusion ont également été guidés par la pertinence scientifique des variables. Par exemple, *`Regional.Node.Positive`* constitue un indicateur direct car il indique le nombre de ganglions lymphatiques envahis par le cancer. Cette variable a un impact majeur sur le pronostic
+
+À l’inverse, *`Regional.Node.Examined`* ne reflète pas la gravité de la maladie, il indique simplement combien de ganglions ont été examinés, et dépend davantage des pratiques médicales, ce qui en fait une mesure moins intéressante pour prédire la survie.
+
+De même, la variable *`Race`* a été jugée peu pertinente dans le cadre de notre analyse, car elle n’apporte pas d’information directement liée à la progression tumorale ou à la survie.
+
+La sélection finale se concentre ainsi sur les dimensions clés du pronostic — caractéristiques tumorales, statut hormonal, extension de la maladie et durée de survie pour garantir un modèle analytique cohérent, non redondant et scientifiquement solide.
+
+**Variables et unités**
+
+Voici une description des variables utilisées dans l’analyse, ainsi que leurs unités et sources :
+
+| Variable | Description | Unité | Source |
+|------------------|------------------|:----------------:|-----------------:|
+| Âge | Âge de la patiente au moment du diagnostic. | Années - Entier | Dossiers médicaux |
+| Marital Status | État matrimonial (ex : Marié, Célibataire, Divorcé, Veuve, Séparé). | Catégorielle | Dossiers médicaux |
+| 6th Stage | Stade global de la maladie (IIA, IIIA, etc.). | Catégorielle | Dossiers médicaux |
+| Grade | Grade de la tumeur (1, 2, 3). | Catégorielle | Dossiers médicaux |
+| Tumor Size | Taille de la tumeur. | Millimètres (mm) - Entier | Dossiers médicaux |
+| Estrogen Status | Statut des récepteurs d’œstrogènes (Positif/Négatif). | Catégorielle | Dossiers médicaux |
+| Progesterone Status | Statut des récepteurs de progestérone (Positif/Négatif). | Catégorielle | Dossiers médicaux |
+| Regional Node Positive | Nombre de ganglions lymphatiques régionaux positifs. | Numérique - Entier | Dossiers médicaux |
+| Survival Months | Durée de survie de la tumeur en mois. | Mois - Entier | Suivi médical |
+
+**Informations complémentaires sur les variables utilisées**
+
+*`6th Stage`* représente le stade global du cancer du sein selon la classification *AJCC* (American Joint Committee on Cancer). Voici les valeurs que nous allons rencontrer, ainsi que leur signification :
+
+| Valeur | Description |
+|------------------------------------|:----------------------------------:|
+| **IIA** | Stade II, tumeur ≤ 2 cm avec atteinte ganglionnaire ou tumeur 2–5 cm sans atteinte ganglionnaire. |
+| **IIB** | Stade II, tumeur 2–5 cm avec atteinte ganglionnaire. |
+| **IIIA** | Stade III, tumeur \> 5 cm avec atteinte ganglionnaire ou tumeur de toute taille avec plusieurs ganglions atteints. |
+| **IIIB** | Stade III, extension à la paroi thoracique ou à la peau (inflammation, ulcération). |
+| **IIIC** | Stade III, atteinte ganglionnaire étendue (ex. : ganglions sus-claviculaires). |
+
+*`Grade`* classe les tumeurs en fonction de leur degré d'agressivité cellulaire. Les valeurs possibles sont les suivantes :
+
+| Valeur | Description |
+|------------------------------------|:----------------------------------:|
+| **1** | Bien différencié : Les cellules tumorales ressemblent aux cellules normales et se divisent lentement. |
+| **2** | Modérément différencié : Les cellules sont anormales mais conservent certaines caractéristiques normales. |
+| **3** | Peu différencié : Les cellules sont très anormales, se divisent rapidement et sont très agressives. |
+| **4** | Très peu différencié (anaplasique) : Les cellules sont extrêmement anormales, agressives et se divisent de manière incontrôlée. |
+
+## Prétraitement et nettoyage des données
+
+Cette étape vise à préparer le jeu de données pour l'analyse économétrique, en assurant la qualité, la cohérence et la pertinence des variables retenues pour l'estimation du modèle MCO.
+
+```{r include=FALSE}
+# Lecture du jeu de données
+don <- read.csv("data/Breast_Cancer.csv")
+don
+```
+
+```{r include=FALSE}
+#Recherche d’individus présentant des valeurs manquantes :
+sum(is.na(don)) # Somme de toutes les valeurs manquantes.
+#which(is.na(don)) # Indice des individus présentant des valeurs manquantes.
+```
+
+Nous pouvons constater, après vérification, l'absence de données manquantes, ce qui nous permet de garder l'intégralité des individus du jeu de données.
+
+Afin d'obtenir un modèle économétrique cohérent, cliniquement pertinent et d'éviter les problèmes de multicolinéarité, plusieurs variables ont été délibérément retirées du jeu de données initial. On a décidé d'enlever 7 variables de notre jeu de données tel que :
+
+-   *`Race`* : Jugée peu pertinente dans le cadre de notre analyse.
+
+-   *`A Stage`* : Redondante avec la variable *`X6th.Stage`*, qui est un indicateur plus complet et synthétique du stade de la maladie.
+
+-   *`Regional Node Examined`* : Moins informative que "*`Regional Node Positive`*".
+
+-   *`T.Stage`* et *`N.Stage`* : Ces deux variables (Taille de la Tumeur et Envahissement Ganglionnaire) sont les composantes directes de l'indicateur *`X6th.Stage`*.
+
+-   *`Status`* : Nous ne pouvons pas déterminer la cause exacte du décès.
+
+-   *`Differentiate`* : Cette variable est fortement corrélée avec la variable Grade.
+
+En synthèse, la phase de prétraitement a permis d'optimiser le jeu de données pour l'analyse économétrique. Après avoir confirmé l'absence de données manquantes, une sélection rigoureuse a été effectuée. Les variables jugées redondantes (*`T.Stage`* et *`N.Stage`*, *`A.Stage`*), moins informatives ( *`Regional Node Examined`* ) ou non pertinentes (*`Race`*) ont été écartées pour des raisons de parcimonie du modèle et pour prévenir la multicolinéarité. La variable *`Status`* a également été exclue par non-pertinence.
+
+Le modèle d'estimation final reposera ainsi sur une variable dépendante, *`Survival.Months`*, et un ensemble ciblé de neuf variables explicatives biologiques, cliniques et socio-démographiques, garantissant une meilleure interprétabilité et cohérence statistique de la régression.
+
+Notre jeu de données comporte donc 4 024 individus et 9 variables les décrivant.
+
+```{r include=FALSE}
+# Suppression des variables non nécessaires à notre analyse
+don <- don[,-c(2, 4, 5, 7, 9, 13, 16)]
+
+dim(don)
+names(don)
+```
+
+Il est crucial de transformer les variables catégorielles (ou qualitatives) en facteurs avant de les inclure dans un modèle de régression linéaire MCO. Les modalités de chaque variable qualitative sont les suivantes :
+
+```{r echo=FALSE}
+# Transformation des variables qualitatives en factor.
+don[ , c(2:4, 6:7)] <- lapply(don[ , c(2:4, 6:7)], factor)
+
+
+# Modification des niveaux de facteurs.
+levels(don$Grade) <- c(4, 1, 2, 3)
+levels(don$Marital.Status) <- c("Divorced", "Married", "Separated", "Single", "Widowed")
+
+# Vérification des modalités de chaque variables qualitatives.
+lapply(don[,c(2:4, 6:7)], levels)
+```
+
+```{r include=FALSE}
+# Vérification des classes de chacune des variables.
+lapply(don, class)
+```
+
+## Analyse descriptive univariée des données
+
+Après avoir nettoyé nos données, nous sommes prêts pour effectuer une analyse descriptive univariée des données.
+
+Dans le tableau suivant, nous pouvons retrouver les différentes variables qui ont été classées selon deux catégories, d'une part les variables quantitatives et d'une autre part, les variables qualitatives / catégorielles.
+
+| Nom de la variable    |         Catégorie          |
+|-----------------------|:--------------------------:|
+| Survival.Months       |        Quantitative        |
+| Age                   |        Quantitative        |
+| Tumor.Size            |        Quantitative        |
+| Reginol.Node.Positive |        Quantitative        |
+| Marital.Status        | Qualitative / Catégorielle |
+| X6th.Stage            | Qualitative / Catégorielle |
+| Grade                 | Qualitative / Catégorielle |
+| Estrogen.Status       | Qualitative / Catégorielle |
+| Progesterone.Status   | Qualitative / Catégorielle |
+
+Nous avons un total de 9 variables dont 4 variables quantitatives et 5 variables qualitatives.
+
+### Tableau de statistiques descriptives pour les 2 catégories de variables :
+
+-   Tableau de statistiques descriptives pour les variables quantitatives :
+
+```{r echo=FALSE}
+var_quanti <- c(1, 5, 8:9)
+lapply(don[, var_quanti], summary)
+#summary(don[, var_quanti])
+```
+
+-   Tableau de statistiques descriptives pour les variables catégorielles :
+
+```{r echo=FALSE}
+var_categ <- c(2:4, 6:7)
+lapply(don[, var_categ], summary)
+#summary(don[, var_categ])
+```
+
+```{r include=FALSE}
+# Initialisation des données
+df <- don
+
+vars_quanti <- c(1, 5, 8:9)
+vars_categ <- c(2:4, 6:7)
+
+# Installation et chargement des packages nécessaires
+if (!require(ggplot2)) install.packages("ggplot2")
+library(ggplot2)
+```
+
+#### Histogrammes pour les variables quantitatives :
+
+```{r echo=FALSE}
+# Graphique 1 : Histogramme de la répartition de Age
+ggplot(df, aes(x = df[, 1])) +
+    geom_histogram(fill = "steelblue", color = "white", bins = 30) +
+    labs(title = paste("Graphique 1 : Histogramme de la répartition de", names(df)[1]),
+         x = names(df)[1],
+         y = "Fréquence") +
+    theme_minimal()
+```
+
+**Interprétation de l’histogramme de l’âge (Graphique 1)**
+
+L’histogramme met en évidence la répartition de l’âge des patients inclus dans l’échantillon. La distribution ne suit pas une forme normale classique. Elle apparaît comme une distribution relativement uniforme. L’âge des patients s’étend globalement de 30 à 70 ans, ce qui montre que l’étude porte sur une population adulte, avec peu d’individus aux extrêmes de cette plage.
+
+Les effectifs sont faibles autour des âges les plus jeunes (30–35 ans). En revanche, plusieurs pics distincts émergent : les classes situées autour de 48–52 ans, 54–57 ans et 60–64 ans comptent les fréquences les plus élevées.
+
+D’un point de vue statistique, cette forme de distribution implique que nos futurs analyses pourraient être fortement influencées par la présence de ces pics successifs.
+
+```{r echo=FALSE}
+# Graphique 2 : Histogramme de la répartition de Tumor.Size
+ggplot(df, aes(x = df[, 5])) +
+    geom_histogram(fill = "steelblue", color = "white", bins = 30) +
+    labs(title = paste("Graphique 2 : Histogramme de la répartition de", names(df)[5]),
+         x = names(df)[5],
+         y = "Fréquence") +
+    theme_minimal()
+```
+
+**Interprétation de l’histogramme de *Tumor.Size* (Graphique 2)**
+
+L’histogramme présente la distribution de la taille des tumeurs au sein de l’échantillon. La forme générale de la distribution est nettement asymétrique à droite, ce qui traduit une concentration importante des observations sur les petites tailles, tandis que quelques valeurs beaucoup plus élevées s’étalent vers la droite du graphique.
+
+La majorité des tumeurs se situent dans l’intervalle 0–40 mm, zone où les effectifs sont les plus élevés. Au-delà de cette plage, la fréquence diminue rapidement, à mesure que la taille de la tumeur augmente.
+
+Cette structure asymétrique implique que la médiane sera plus faible que la moyenne, et met en évidence que la plupart des patients présentent des tumeurs de petite à moyenne taille. Ainsi, on peut souligner l’existence de quelques cas isolés de tumeurs de très grande taille, considérées comme des valeurs extrêmes.
+
+```{r echo=FALSE}
+# Graphique 3 : Histogramme de la répartition de Reginal.Node.Positive
+ggplot(df, aes(x = df[, 8])) +
+    geom_histogram(fill = "steelblue", color = "white", bins = 30) +
+    labs(title = paste("Graphique 3 : Histogramme de la répartition de", names(df)[8]),
+         x = names(df)[8],
+         y = "Fréquence") +
+    theme_minimal()
+```
+
+**Interprétation de l'Histogramme de Reginal.Node.Positive (Graphique 3)**
+
+L’histogramme met en évidence la répartition du nombre de ganglions lymphatiques régionaux positifs chez les patients. La distribution apparaît fortement asymétrique à droite, avec une concentration très élevée des observations sur les valeurs les plus faibles. Plus de 1500 individus sont situés à 0, ce qui montre qu’une large majorité des patients ne présentent aucun ganglion régional positif.
+
+Au-delà de cette valeur dominante, les effectifs chutent brutalement avec un léger second pic qui se situe autour de 1, mais il reste nettement inférieur au premier, et la fréquence décroît rapidement à mesure que le nombre de ganglions augmente. Les valeurs supérieures à 10 sont très peu représentées, et peuvent être considérées comme des valeurs extrêmes.
+
+```{r echo=FALSE}
+# Graphique 4 : Histogramme de la répartition de Reginal.Node.Positive
+ggplot(df, aes(x = df[, 9])) +
+    geom_histogram(fill = "steelblue", color = "white", bins = 30) +
+    labs(title = paste("Graphique 4 : Histogramme de la répartition de", names(df)[9]),
+         x = names(df)[9],
+         y = "Fréquence") +
+    theme_minimal()
+```
+
+**Interprétation de l’histogramme de *Survival.Months* (Graphique 4)**
+
+L’histogramme présente la distribution de la durée de survie de la tumeur, exprimée en mois. La forme générale de la distribution est asymétrique à gauche. Elle se caractérise d’abord par une faible fréquence d’observations durant les premières périodes : entre 0 et environ 50 mois, les effectifs restent modestes, même si l’on observe une légère augmentation progressive jusqu’aux alentours de 45–50 mois.
+
+À partir de cette zone, le graphique montre un changement brutal : un pic massif apparaît entre 50 et 60 mois. Au-delà de cette valeur, les fréquences se stabilisent à un niveau très élevé, oscillant entre 150 et 250 observations jusqu’à environ 100 mois.
+
+#### Boxplot pour les variables quantitatives :
+
+```{r echo=FALSE}
+# Boxplots
+p1 <- ggplot(df, aes(y = df[, 1])) +
+      geom_boxplot(fill = "lightgreen", color = "darkgreen") +
+      labs(title = paste("Graphique 5 : Boxplot de", names(df)[1]),
+        y = names(df)[1]) +
+      theme_minimal()
+
+p2 <- ggplot(df, aes(y = df[, 5])) +
+      geom_boxplot(fill = "lightgreen", color = "darkgreen") +
+      labs(title = paste("Graphique 6 : Boxplot de", names(df)[5]),
+        y = names(df)[5]) +
+      theme_minimal()
+
+p3 <- ggplot(df, aes(y = df[, 8])) +
+      geom_boxplot(fill = "lightgreen", color = "darkgreen") +
+      labs(title = paste("Graphique 7 : Boxplot de", names(df)[8]),
+        y = names(df)[8]) +
+      theme_minimal()
+
+p4 <- ggplot(df, aes(y = df[, 9])) +
+      geom_boxplot(fill = "lightgreen", color = "darkgreen") +
+      labs(title = paste("Graphique 8 : Boxplot de", names(df)[9]),
+        y = names(df)[9]) +
+      theme_minimal()
+
+library(gridExtra)
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+```
+
+Les boxplots des variables quantitatives, *`Age`*, *`Tumor.Size`*, *`Reginol.Node.Positive`* et *`Survival.Months`* permettent d'identifier plus facilement les valeurs aberrantes, celles-ci étant mises en évidence par ce type de représentation graphique.
+
+L'identification de ces valeurs extrêmes est essentielle afin d'adapter nos modèles de régression et d'évaluer leur influence sur les résultats, voire d'en tirer des conclusions pertinentes. L'interprétation générale des boxplots reste toutefois cohérente avec celle des histogrammes précédemment présentés, en confirmant la distribution et la dispersion des données.
+
+#### Histogrammes en bar pour les variables qualitatives :
+
+```{r echo=FALSE}
+# Graphique 5 : Diagramme en barres de Marital.Status
+ggplot(df, aes(x = factor(df[, 2]))) +
+    geom_bar(fill = "coral") +
+    labs(title = paste("Graphique 9 : Diagramme en barres de", names(df)[2]),
+         x = names(df)[2],
+         y = "Effectifs") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+**Interprétation de l’histogramme de Marital.Status (Graphique 9)**
+
+L’histogramme révèle une répartition très déséquilibrée des statuts matrimoniaux. La catégorie *`Married`* domine nettement l’échantillon, représentant la majorité des individus avec près de 2800 observations. Les statuts *`Single`*, *`Divorced`* et *`Widowed`* présentent des effectifs beaucoup plus faibles mais relativement proches, compris entre 400 et 650. Enfin, la catégorie *`Separated`* apparaît comme une classe extrêmement minoritaire, avec seulement une cinquantaine d’observations. Cette distribution met en évidence une forte asymétrie, marquée par la prédominance du statut *`Married`* et la faible représentation de certaines catégories.
+
+```{r echo=FALSE}
+# Graphique 6 : Diagramme en barres de X6th.Stage
+ggplot(df, aes(x = factor(df[, 3]))) +
+    geom_bar(fill = "coral") +
+    labs(title = paste("Graphique 10 : Diagramme en barres de", names(df)[3]),
+         x = names(df)[3],
+         y = "Effectifs") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+**Interprétation de l’histogramme de X6th.Stage (Graphique 10)**
+
+La distribution des stades montre une forte concentration dans les stades précoces à intermédiaires. Les stades *`IIA`*, *`IIB`* et *`IIIA`* sont les plus fréquents, chacun regroupant entre 1050 et 1300 patients, ce qui constitue la majorité de l’échantillon. Le stade *`IIIC`* est nettement moins représenté, avec environ 470 observations. Le stade *`IIIB`* apparaît comme une catégorie particulièrement rare, avec à peine une cinquantaine de cas. L’ensemble met en évidence un déséquilibre marqué entre les stades dominants (*`IIA`*, *`IIB`*, *`IIIA`*) et les stades plus avancés, en particulier *`IIIB`*, très peu observé.
+
+```{r include=FALSE}
+# Somme des valeurs de X6th.Stage ayant comme modalité : IIIB
+sum(don$X6th.Stage == "IIIB")
+#sum(don$X6th.Stage == "IIIC")
+```
+
+```{r echo=FALSE}
+# Graphique 7 : Diagramme en barres de Grade
+ggplot(df, aes(x = factor(df[, 4]))) +
+    geom_bar(fill = "coral") +
+    labs(title = paste("Graphique 11 : Diagramme en barres de", names(df)[4]),
+         x = names(df)[4],
+         y = "Effectifs") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+**Interprétation de l’histogramme de Grade (Graphique 11)**
+
+L’histogramme du Grade montre une nette prédominance du Grade 2, qui constitue la majorité des observations avec plus de 2300 patients. Les Grades 3 et 1 sont moins fréquents, comptant respectivement environ 1100 et 550 patients. Le Grade 4 est extrêmement rare, avec moins de 50 observations, représentant une minorité quasi négligeable de l’échantillon.
+
+```{r include=FALSE}
+# Somme des valeurs de Grade ayant comme modalités : 4
+sum(don$Grade == 4)
+```
+
+```{r echo=FALSE}
+# Graphique 8 : Diagramme en barres de Estrogen.Status
+ggplot(df, aes(x = factor(df[, 6]))) +
+    geom_bar(fill = "coral") +
+    labs(title = paste("Graphique 12 : Diagramme en barres de", names(df)[6]),
+         x = names(df)[6],
+         y = "Effectifs") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+**Interprétation de l’histogramme de Estrogen.Status (Graphique 12)**
+
+L’histogramme du Statut d’Estrogène montre une distribution fortement déséquilibrée. La majorité des patients sont ER Positif (environ 90%, plus de 3500 observations), tandis que le statut ER Négatif est très minoritaire, avec seulement 350 observations. Ce déséquilibre est critique, si le statut d'ER est la variable cible, les modèles auront une forte tendance à prédire *`Positif`* et peuvent afficher une faible performance pour détecter les cas *`Négatifs`*.
+
+```{r echo=FALSE}
+# Graphique 9 : Diagramme en barres de Progesterone.Status
+ggplot(df, aes(x = factor(df[, 7]))) +
+    geom_bar(fill = "coral") +
+    labs(title = paste("Graphique 13 : Diagramme en barres de", names(df)[7]),
+         x = names(df)[7],
+         y = "Effectifs") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+**Interprétation de l’histogramme de Progesterone.Status (Graphique 13)**
+
+L’histogramme du statut de progéstérone révèle un également un déséquilibre marqué. La majorité des patients présentent un statut PR positif, avec plus de 3200 observations, tandis que le statut PR négatif est beaucoup moins représenté, avec environ 700 à 750 patients. Ce ratio montre que le statut positif domine clairement l’échantillon, mais que la classe négative reste suffisamment présente pour être statistiquement notable.
+
+**Concluion de l'analyse univarié**
+
+En résumé, l'analyse univariée permet de dresser le profil clinique type des patientes de notre échantillon. Les données révèlent une population âgée en moyenne de 54 ans, présentant une durée de survie moyenne de 71 mois. Sur le plan clinique, la taille moyenne des tumeurs est de 30,47 mm avec un envahissement ganglionnaire moyen de 4 ganglions positifs.
+
+L'échantillon se caractérise également par une forte prédominance de statuts hormonaux positifs (Estrogène et Progestérone), qui constituent des facteurs pronostiques classiquement favorables. Cette première exploration met en évidence une variabilité importante des indicateurs de sévérité (taille et ganglions), ce qui justifie pleinement le passage à une analyse multivariée pour isoler l'impact spécifique de chaque facteur sur la survie.
+
+## Analyse descriptive bivariée des données
+
+Cette section présente l'analyse des relations simples entre la variable dépendante, la durée de survie en mois (*`Survival.Months`*) et chacune des variables explicatives quantitatives et catégorielles.
+
+### Relations avec les varibles quantitatives
+
+#### Matrice de corrélation
+
+La matrice de corrélation permet d’évaluer l’intensité et le sens des relations linéaires entre la variable dépendante *`Survival.Months`* et les variables explicatives quantitatives du modèle. Les coefficients vont de –1 (corrélation négative parfaite) à +1 (corrélation positive parfaite).
+
+```{r include=FALSE}
+# Initialisation des données
+df <- don
+
+# Sélection des variables quantitatives
+vars_quanti <- don[, c("Survival.Months", "Age", "Tumor.Size", 
+                       "Reginol.Node.Positive")]
+
+#vars_quanti <- c(1, 5, 8:9)
+#vars_categ <- c(2:4, 6:7)
+```
+
+-   Valeurs prises par la matrice de corrélation :
+
+```{r echo=FALSE}
+# Matrice de corrélation
+cor_matrix <- cor(vars_quanti, use = "complete.obs")
+
+# Valeurs prises par la matrice
+cor_matrix
+```
+
+-   Visualisation de la matrice de corrélation :
+
+```{r echo=FALSE}
+library(corrplot)
+
+# Visualisation de la matrice de corrélation
+corrplot(cor_matrix, method = "color", addCoef.col = "black",
+         tl.col = "black", tl.cex = 0.8, tl.srt = 45, title = "Graphique 14 : Matrice de corrélation")
+```
+
+Dans notre cas, toutes les corrélations sont faibles, ce qui signifie que chaque relation est modérée ou faible mais potentiellement informative dans un modèle multivarié. *`Regional.Node.Positive`* est la corrélation la plus forte, mais toujours modérée, plus le nombre de ganglions positifs est élevé, plus la survie tend à diminuer.
+
+#### Nuages de points
+
+```{r echo=FALSE}
+library(ggplot2)
+
+ggplot(df, aes(x = Tumor.Size, y = Survival.Months)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm") +
+  theme_minimal() +
+  ggtitle("Graphique 15 : Relation entre TumorSize et SurvivalMonths")
+
+ggplot(df, aes(x = Age, y = Survival.Months)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm") +
+  theme_minimal() +
+  ggtitle("Graphique 16 : Relation entre Age et SurvivalMonths")
+
+ggplot(df, aes(x = Reginol.Node.Positive, y = Survival.Months)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm") +
+  theme_minimal() +
+  ggtitle("Graphique 17 : Relation entre RegionalNodePositive et SurvivalMonths")
+
+```
+
+L'analyse visuelle des nuages de points confirme la nature des relations et leur forte dispersion. Les graphiques illustrent une dispersion très importante des observations pour les trois variables. La ligne de régression simple (MCO) montre une légère pente négative dans tous les cas, ce qui est cohérent avec le signe négatif des coefficients de corrélation.
+
+-   Tumor.Size et Age : La faible corrélation (ρ≈−0.087 pour Tumor.Size et −0.04 pour Age) se traduit par un nuage de points très étendu. Cela signifie que pour une taille de tumeur ou un âge donné, la durée de survie observée varie énormément (la variance du terme d'erreur simple est très élevée).
+-   Reginol.Node.Positive : Bien que la corrélation soit plus forte, la dispersion reste notable. Néanmoins, on observe une concentration des observations de survie élevée lorsque le nombre de ganglions positifs est faible (proche de zéro), et les cas de survie très faible tendent à se retrouver lorsque ce nombre est plus élevé.
+
+### Relation avec les variables qualitatives
+
+L'analyse bivariée des relations entre la durée de survie (Survival.Months) et les variables explicatives permet de valider les hypothèses initiales et d'évaluer la pertinence de chaque facteur avant la modélisation multivariée.
+
+```{r echo=FALSE}
+ggplot(df, aes(x = X6th.Stage, y = Survival.Months, fill = X6th.Stage)) +
+  geom_boxplot() +
+  labs(title = "Graphique 18 : Survie en fonction du Stade Clinique",
+       x = "Stade Clinique (X6th.Stage)",
+       y = "Durée de Survie (Mois)") +
+  theme_minimal() +
+  scale_x_discrete(limits = levels(df$X6th.Stage))
+```
+
+L'examen du Graphique 18 révèle une tendance négative dans la survie médiane à mesure que le stade clinique progresse.
+
+Les stades précoces (IIA et IIB) affichent les médianes les plus élevées (autour de 75 mois). Conformément aux attentes cliniques, le stade le plus avancé, IIIC, présente la médiane de survie la plus courte, se situant autour de 65 mois.
+
+Bien que la durée de survie soit très dispersée dans tous les groupes (variance élevée), le décalage vers le bas de la distribution au stade IIIC confirme la pertinence du Stade Clinique comme un indicateur pronostique bivarié fondamental.
+
+```{r echo=FALSE}
+# Boxplot pour Grade Histologique
+ggplot(df, aes(x = Grade, y = Survival.Months, fill = Grade)) +
+  geom_boxplot() +
+  labs(title = "Graphique 19 : Survie en fonction du Grade Histologique",
+       x = "Grade",
+       y = "Durée de Survie (Mois)") +
+  theme_minimal()
+```
+
+Le Graphique 19 indique que la relation ordinale entre le Grade et la survie est faible.
+
+Les médianes de survie sont très similaires pour les Grades 1 et 2 et le grade 3 montre la médiane la plus basse (autour de 70 mois), suggérant un pronostic légèrement moins favorable.
+
+```{r echo=FALSE}
+# Boxplot pour Marital Status (Statut Marital)
+ggplot(df, aes(x = Marital.Status, y = Survival.Months, fill = Marital.Status)) +
+  geom_boxplot() +
+  labs(title = "Graphique 20 : Survie en fonction du Statut Marital",
+       x = "Statut Marital",
+       y = "Durée de Survie (Mois)") +
+  theme_minimal()
+```
+
+L'analyse de la survie en fonction du statut marital (Graphique 20) révèle des différences très marginales.
+
+Les patientes mariée affichent la médiane de survie la plus élevée (autour de 75 mois), ce qui pourrait soutenir l'hypothèse d'un léger effet bénéfique du soutien social.
+
+À l'inverse, les patientes séparées présentent la médiane la plus basse (autour de 65 mois).
+
+Néanmoins, l'étendue interquartile et les médianes de l'ensemble des groupes sont très proches, suggérant que l'impact du statut marital est très faible par rapport aux déterminants cliniques.
+
+```{r echo=FALSE}
+# Boxplot pour Estrogen Status (Statut des Récepteurs à l'Oestrogène)
+ggplot(df, aes(x = Estrogen.Status, y = Survival.Months, fill = Estrogen.Status)) +
+  geom_boxplot() +
+  labs(title = "Graphique 21 : Survie en fonction du Statut ER",
+       x = "Statut ER",
+       y = "Durée de Survie (Mois)") +
+  theme_minimal()
+```
+
+Le statut des récepteurs à l'œstrogène (ER) apparaît comme un facteur prédominant en graphique 21.
+
+Le groupe positif présente une médiane de survie significativement plus élevée (environ 75 mois) que le groupe négatif (environ 65 mois). De plus, la dispersion des durées de survie (représentée par l'étendue interquartile) est plus resserrée pour les patientes ER+, ce qui traduit une survie plus stable pour ce groupe. Inversement, les patientes ER- présentent une distribution plus large et plus basse, intégrant un risque accru de survie courte. Ce résultat confirme l'hypothèse d'une meilleure réponse au traitement et d'un meilleur pronostic pour les patientes ER+.
+
+**Concluion de l'analyse bivarié**
+
+En conclusion de cette analyse bivariée, les facteurs cliniques du Stade et du Status ER s'avèrent être les prédicteurs les plus forts de la survie mais modérés quand même. Les variables quantitatives montrant une corrélation linéaire faible, et les facteurs sociaux montrant une faible variation des médianes, leur véritable influence sera isolée et quantifiée précisément par l'estimation du modèle de régression multivariée MCO.
+
+# Analyse et discussion des résultats
+
+## Modélisation principale
+
+Nous avons fait une fonction à l'aide de ChatGPT nous permettant de coder des variables muettes qui proviennent de nos variables qualitatives / catégorielles. On va venir supprimer la variable muette qui a le plus grand effectif pour éviter les risques de multicolinéarité entre les niveaux de facteurs.
+
+```{r include=FALSE}
+one_hot_encode <- function(df) {
+  factors <- names(df)[sapply(df, is.factor)]
+  if (length(factors) == 0) return(df)
+  
+  for (var in factors) {
+    # récupérer la variable
+    x <- df[[var]]
+    
+    # trouver la modalité la plus rare
+    counts <- table(x)
+    ref_level <- names(which.max(counts))
+    
+    # fixer cette modalité comme référence
+    df[[var]] <- relevel(x, ref = ref_level)
+  }
+  
+  # model.matrix crée automatiquement n - 1 colonnes
+  dummies <- model.matrix(~ . - 1, data = df[factors, drop = FALSE])
+  
+  # retirer les colonnes factor originales
+  df[factors] <- NULL
+  
+  # fusionner
+  cbind(df, dummies)
+}
+
+data_encoding <- one_hot_encode(don)
+#summary(data_encoding)
+```
+
+L'évaluation comparative des trois modèles de régression MCO révèle que le **Modèle Log-Linéaire (Modèle B)**, estimé sur la variable dépendante transformée $ln(Survival Months)$, est le plus performant et le plus cohérent statistiquement. Bien que les trois modèles présentent une signification globale, le Modèle $B$ obtient le R2 ajusté le plus élevé (0.04415 contre 0.03596 pour le Modèle $A$ et 0.03476 pour le Modèle $C$).
+
+Cette supériorité s'explique par la nature des données de survie, qui sont susceptibles de violer l'hypothèse d'homoscédasticité des résidus. La transformation logarithmique a pour effet de stabiliser la variance et de normaliser la distribution des erreurs. En conséquence, certaines variables, telles que la *`Tumor.Size`* et le *`Progesterone.StatusNegative`*, qui étaient non significatives dans le Modèle $A$, deviennent plus significatives dans le Modèle $B$. Nous retenons donc ce Modèle Log-Linéaire comme le modèle principal pour la discussion des résultats, en interprétant ses coefficients en termes d'impacts sur la durée de survie.
+
+**Modèle A - classique** : $Y_i = \beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i} + \cdots + \beta_k X_{ki} + \varepsilon_i$
+
+```{r echo=FALSE}
+reg1 <- lm(Survival.Months ~ ., data=data_encoding)
+summary(reg1)
+```
+
+Nous remarquons que la variable *`Marital.StatusWidowed`* n’est pas estimée (NA), ce qui s’explique par une colinéarité parfaite liée au codage de la variable qualitative *`Marital.Status`*.
+
+**Modèle B - log** : vise à atténuer les problèmes d'asymétrie et d'hétéroscédasticité des données de survie.
+
+```{r echo=FALSE}
+reg1 <- lm(log(Survival.Months) ~ Tumor.Size + Age + Reginol.Node.Positive + Marital.StatusMarried + Marital.StatusSeparated + Marital.StatusDivorced + Marital.StatusSingle  + Marital.StatusWidowed + X6th.StageIIB + X6th.StageIIIA + X6th.StageIIIB +
+X6th.StageIIIC+ Grade1 + Grade4 + Grade3 + Estrogen.StatusNegative + Progesterone.StatusNegative, data=data_encoding)
+summary(reg1)
+```
+
+L'évaluation comparative des modèles de régression MCO confirme que le **Modèle Log-Linéaire** est la structure d'estimation la plus adéquate. Avec un R2 ajusté de 0.04415, ce modèle explique une part modeste mais significative de la variance de la survie, et surpasse les modèles linéaires en validité statistique. L'interprétation des coefficients révèle que les facteurs biologiques sont les déterminants majeurs de la survie : le Statut ER Négatif ($\hat{\beta} = −0.215$) est associé à une réduction de 19.3% de la survie, tandis que le Statut PR Négatif ($\hat{\beta} = −0.052$) entraîne une réduction de 5.07%. L'extension de la maladie (Stade IIIC et nombre de ganglions) est également significative, tandis que les facteurs socio-démographiques et l'âge n'ont aucun effet marginal significatif. Le Modèle Log-Linéaire est donc retenu comme le modèle principal pour la discussion des résultats, car il fournit les estimations les plus robustes.
+
+**Modèle C - avec les variables cliniques uniquement**
+
+```{r echo=FALSE}
+reg1 <- lm(Survival.Months ~ Tumor.Size + Reginol.Node.Positive+ X6th.StageIIB + X6th.StageIIIA + X6th.StageIIIB + X6th.StageIIIC + Grade1 + Grade4 + Grade3 + Estrogen.StatusNegative + Progesterone.StatusNegative, data=data_encoding)
+summary(reg1)
+```
+
+Suite à l'analyse du Modèle Log-Linéaire Complet (Modèle B), qui a révélé la non-significativité d'un grand nombre de prédicteurs (tels que l'âge, la majorité des catégories du Grade et du Statut Marital), une approche par réduction est adoptée. L'objectif est d'améliorer l'efficacité du modèle en éliminant les variables n'apportant pas d'information explicative significative, tout en conservant celles dont l'effet est biologiquement ou statistiquement pertinent. Ce Modèle D est obtenu par une suppression des variables les moins significatives du Modèle $B$. Cette démarche vise à réduire la variance des coefficients et, potentiellement, à maximiser le R2 ajusté, afin d'obtenir un modèle plus précis pour l'interprétation et l'analyse de robustesse subséquente.
+
+**Modèle D - ajusté**
+
+```{r echo=FALSE}
+regD <- lm(log(Survival.Months) ~ Tumor.Size +
+                                 Reginol.Node.Positive +
+                                 Marital.StatusMarried +  
+                                 Marital.StatusSeparated +
+                                 X6th.StageIIIC +
+                                 Grade3 +
+                                 Grade4 +
+                                 Estrogen.StatusNegative +
+                                 Progesterone.StatusNegative,
+                                 data = data_encoding)
+
+summary(regD)
+```
+
+Ce modèle présente un R2 ajusté de 0.04508, soit une légère amélioration par rapport au Modèle $B$ (0.04415). Le modèle est fortement significatif (statistique F à $p<2.2e^{−16}$). L'amélioration de l'ajustement malgré la réduction du nombre de variables confirme que les prédicteurs supprimés étaient principalement du bruit statistique.
+
+Il représente **le modèle le plus performant** pour l'analyse des déterminants de la survie de la tumeur. Ce modèle confirme que les **facteurs biologiques (ER/PR Status)** sont les plus influents, tout en validant un rôle significatif de la **Taille de la Tumeur** et du **Statut Marital**. L'amélioration de la signification statistique de plusieurs coefficients et l'augmentation du R2 ajusté justifient le choix de ce Modèle Réduit.
+
+Nous retenons donc le **modèle** $D$ pour l’étape suivante, qui consistera à évaluer la robustesse de ses résultats.
+
+## Robustesse des résultats
+
+Nous allons passer à la vérification de la robustesse de ses résultats en évaluant la validité des hypothèses. L'analyse de robustesse est cruciale pour garantir la fiabilité du modèle $D$. Nous allons procéder à la vérification de différentes hypothèses, telles que l'hypothèse de Normalité, d'Homoscédasticité. Nous allons également évaluer la présence de points influents à partir des résidus du modèle $D$.
+
+### Hyposthèses de linéarité et homoscédasticité
+
+-   Graphique des résidus vs. valeurs ajustées (Fitted values)
+
+```{r echo=FALSE}
+# Graphique des résidus vs. valeurs ajustées (Fitted values)
+plot(regD, which = 1)
+```
+
+**Interprétations du graphiques des résidus vs. valeurs ajustées (Residuals vs Fitted)**
+
+Le graphique des résidus vs. valeurs ajustées permet d’évaluer deux hypothèses fondamentales du modèle de régression linéaire : la linéarité et l’homoscédasticité.
+
+Dans notre cas, la ligne de lissage (en rouge) est relativement plate, principalement centrée autour de la ligne horizontale $y=0$. Ceci est un bon signe, car la relation linéaire semble appropriée entre les variables explicatives et la durée de survie de la tumeur.
+
+La dispersion des résidus est nettement hétérogène et révèle un problème majeur : l'hétéroscédasticité. En effet, la variance des résidus n'est pas constante. Pour les faibles valeurs ajustées, les résidus sont très dispersés, tandis que pour les valeurs ajustées élevées, ils forment un motif asymétrique avec des résidus négatifs extrêmement étendus.
+
+Cette hétéroscédasticité rend les erreurs standards des coefficients biaisées, ce qui invalide les tests de significativité (p-values) et les intervalles de confiance. Autrement dit, les conclusions sur l’impact des variables explicatives (comme l’âge, le stade du cancer ou le nombre de ganglions positifs) pourraient être erronées, car leur significativité statistique est remise en question.
+
+**Pour y remédier, il sera nécessaire d’utiliser des erreurs standards robustes ou d’envisager une transformation de la variable dépendante.**
+
+### Hypothèse d'absence de multicolinéarité (VIF)
+
+```{r echo=FALSE}
+# install.packages("car") 
+library(car)
+
+vif_results <- vif(regD)
+
+print("Résultats du Facteur d'Inflation de la Variance (VIF) :")
+sort(vif_results, decreasing = TRUE)
+```
+
+L'analyse des corrélations bivariées a montré qu'aucun coefficient de corrélation n'excède 0.8, indiquant une absence de forte dépendance linéaire simple.
+
+La **Règle de Klein** n'a pas été retenue car son manque de pertinence statistique est lié à la faiblesse du R2 ajusté du Modèle $D$, ce qui rend l'interprétation de cette règle trompeuse.
+
+Nous avons bien une absence de multicolinéarité, tous les VIF sont nettement inférieurs au seuil critique de 5 et très loin du seuil d'alarme de 10. Le modèle $D$ est robuste vis-à-vis de l'hypothèse d'absence de multicolinéarité.
+
+### Hypothèse de normalité des résidus
+
+-   Graphique Quantile-Quantile (QQ-Plot Residuals)
+
+```{r echo=FALSE}
+# Graphique Quantile-Quantile (QQ-Plot) pour la Normalité
+plot(regD, which = 2)
+```
+
+**Interprétation du graphique Quantile-Quantile (QQ-Plot) des résidus standardisés**
+
+Le graphique QQ-Plot des résidus standardisés permet de vérifier si les résidus de votre modèle de régression suivent une distribution normale, une hypothèse clé des Moindres Carrés Ordinaires (MCO).
+
+Dans notre cas, bien que le corps central de la distribution suive globalement la ligne théorique, indiquant une normalité approximative autour de la moyenne, les queues de distribution révèlent une violation majeure de la normalité.
+
+En particulier, la queue inférieure (négative) qui s’écarte dramatiquement de la ligne théorique : les points plongent verticalement pour les quantiles théoriques faibles, avec des résidus standardisés atteignant des valeurs extrêmes (jusqu’à -8). Ces observations sont des valeurs aberrantes qui suggèrent une asymétrie négative prononcée et une queue gauche extrêmement lourde, incompatible avec une distribution normale.
+
+Cette violation de la normalité des résidus peut biaiser les tests de significativité (p-values) et les intervalles de confiance, rendant les conclusions statistiques moins fiables.
+
+La transformation logarithmique $\log(\text{Survival.Months})$ n'a pas suffi à normaliser complètement la variable réponse ou les erreurs.
+
+-   Test de Normalité de Jarque-Bera
+
+```{r echo=FALSE}
+#install.packages("tseries")
+library(tseries) 
+jarque.bera.test(residuals(regD))
+```
+
+**Interprétation du test de Normalité de Jarque-Bera**
+
+-   **Hypothèse Nulle (**$H_0$) : Les résidus suivent une distribution normale.
+
+-   **Hypothèse Alternative (**$H_1$) : Les résidus ne suivent pas une distribution normale.
+
+Étant donné que la $p{-value} < 2.2 \times 10^{-16}$ qui est **nettement inférieure** à tout seuil de signification raisonnable ($\alpha=0.05$ ou même $\alpha=0.01$), nous **rejetons très fortement l'hypothèse nulle (**$H_0$).
+
+Les résultats du test de Jarque-Bera confirment la conclusion visuelle tirée du QQ-Plot. En effet, la distribution des résidus du modèle $D$ est très loin d'être normale et l'inférence statistique basée sur la régression linéaire est invalide, ce qui implique que les p-values que nous avons obtenues dans les résultats du modèle ne peuvent pas être utilisées pour tirer des conclusions fiables sur la signification statistique des prédicteurs.
+
+-   Test d'Homoscédasticité de Breusch-Pagan
+
+```{r echo=FALSE}
+#install.packages("lmtest")
+library(lmtest)
+bptest(regD)
+```
+
+**Interprétation du Test d'Homoscédasticité de Breusch-Pagan**
+
+-   **Hypothèse Nulle (**$H_0$) : La variance des résidus est constante (**Homoscédasticité**).
+
+-   **Hypothèse Alternative (**$H_1$) : La variance des résidus n'est pas constante (**Hétéroscédasticité**).
+
+Puisque la $p$-value ($5.969 \times 10^{-07}$) est **largement inférieure** au seuil de signification de $\alpha=0.05$, nous **rejetons très fortement l'hypothèse nulle (**$H_0$).
+
+Le test de Breusch-Pagan **confirme rigoureusement** l'observation visuelle du graphique Résidus vs. Ajustées. En effet, le modèle $D$ souffre d'une hétéroscédasticité significative. De plus, les erreurs standards et les p-values basées sur la méthode des MCO sont biaisées et non fiables.
+
+### Vérification des points influents
+
+-   Identification des points influents via la distance de Cook
+
+```{r echo=FALSE}
+cooks.distance_model <- cooks.distance(regD)
+head(sort(cooks.distance_model, decreasing = TRUE), 3)
+```
+
+-   Visualisation des points de levier et de Cook (Plot du Leverages vs Résidus)
+
+```{r echo=FALSE}
+plot(regD, which = 5)
+```
+
+**Interprétation du graphique des résidus studentisés vs. Levier et Distance de Cook**
+
+Le graphique des résidus studentisés vs. levier, combiné à la distance de Cook, permet d’identifier les observations influentes et les valeurs aberrantes qui pourraient fausser les résultats du modèle.
+
+Dans notre cas, trois observations se distinguent clairement : les points 3804, 1542 et 1561 présentent des résidus studentisés extrêmement négatifs (entre -4 et -6), indiquant que leur survie réelle (en logarithme) est bien inférieure à ce que le modèle prédit.
+
+Ces écarts extrêmes confirment la présence de valeurs aberrantes, déjà suspectées dans l’analyse de la normalité des résidus. En ce qui concerne le levier (influence des valeurs explicatives), les points 1542 et 1561 affichent un levier élevé (autour de 0,05), ce qui signifie qu’ils ont un poids important dans l’estimation des coefficients du modèle.
+
+Enfin, la distance de Cook révèle que ces trois observations dépassent ou frôlent le seuil critique de 0.5, confirmant leur influence significative sur les résultats. Ainsi, ces points pourraient biaiser les estimations et doivent être examinés de près, voire exclus ou corrigés pour améliorer la robustesse du modèle.
+
+### Estimation Robuste à l'Hétéroscédasticité (HC) :
+
+```{r echo=FALSE}
+# Installation et chargement des bibliothèques nécessaires
+if(!require(sandwich)) install.packages("sandwich")
+if(!require(lmtest)) install.packages("lmtest")
+
+library(sandwich)
+library(lmtest)
+
+# Application de l'estimation robuste (HC1)
+robust_estimation <- coeftest(regD, vcov = vcovHC(regD, type = "HC1"))
+
+# Affichage des résultats robustes
+print("--- Résultats du Modèle D avec Erreurs Standards Robustes (HC1) ---")
+robust_estimation
+```
+
+Ce test est crutcal, il permet de valider la fiabilité des conclusions tirées du modèle $D$ initial, en corrigeant les erreurs standards des coefficients pour tenir compte de la violation probable de l'hypothèse d'homoscédasticité (variance des erreurs non constante). Le tableau présente les résultats du test t des coefficients après avoir appliqué la méthode de la Matrice de Covariance Hétéroscédasticité-Consistante (HC) de Huber-White.
+
+Les variables suivantes restent significatives malgré la correction, ce qui prouve la solidité de leur impact :
+
+-   *`Estrogen.StatusNegative`* ($p = 3.69 \times 10^{-06}$) : C'est le prédicteur le plus puissant. Le passage à un statut négatif diminue le log du temps de survie de la tumeur d'environ 0,21 unité. C'est un résultat extrêmement stable.
+
+-   *`Tumor.Size`* ($p = 0.007$) : La taille de la tumeur reste un facteur aggravant significatif. De plus, sa significativité s'est même légèrement améliorée, renforçant son rôle clinique.
+
+-   *`Progesterone.StatusNegative`* ($p = 0.034$) : Elle reste significative, confirmant que le profil hormonal est un facteur important de la survie de la tumeur.
+
+-   *`Marital.StatusMarried`* ($p = 0.022$) : Le fait d'être mariée conserve un effet positif sur la survie par rapport à la catégorie de référence.
+
+En revanche, certaines variables qui étaient significatives dans le premier modèle (modèle $D$), ne le sont plus vraiment car elles perdent en significativité :
+
+-   *`X6th.StageIIIC`* ($p = 0.074$) : Elle passe au-dessus du seuil de 5%. Son effet n'est plus considéré comme statistiquement significatif au seuil conventionnel. L'hétéroscédasticité vous avait donné une fausse impression de précision sur ce stade.
+
+-   *`Reginol.Node.Positive`* ($p = 0.025$) : Elle reste significative, mais la $p$-value a augmenté (elle était à $0.01$). Son influence est réelle mais plus fragile qu'estimé initialement.
+
+Les variables *`Grade 3`* & *`Grade 4`* sont des variables confirmées comme non significatives. Comme pressenti lors de l'analyse descriptive, le faible effectif (notamment de Grade 4) et la forte variabilité empêchent ces variables d'avoir un impact statistiquement démontrable sur la survie dans ce modèle. Leurs erreurs standards ont augmenté pour le Grade 4 (0.15 contre 0.10 initialement).
+
+L'inférence robuste (HC1) montre que les principaux déterminants de la survie dans notre échantillon sont le **statut d'œstrogène**, la **taille de la tumeur**, le **statut de progestérone** et le **statut marital (mariée)**. En revanche, l'effet initialement observé du **Stade IIIC** s'est avéré non robuste après correction de l'hétéroscédasticité. Ces résultats soulignent l'importance capitale des récepteurs hormonaux dans le pronostic vital, tout en mettant en garde contre l'interprétation de variables cliniques dont la variance est instable.
+
+### Conclusion
+
+Le modèle de régression linéaire $D$ présente des problèmes majeurs qui remettent en cause la fiabilité de ses résultats. Bien qu’il n’y ait pas de multicolinéarité (VIF \< 3), deux hypothèses clés des Moindres Carrés Ordinaires (MCO) ne sont pas respectées :
+
+1.  Les résidus ne sont pas normaux : Le test de Jarque-Bera $p\approx 0$ montre une asymétrie extrême dans les résidus, avec des valeurs aberrantes atteignant -8 écarts-types. Cela fausse les tests de significativité (p-values).
+
+2.  La variance des résidus n’est pas constante (hétéroscédasticité) : Le test de Breusch-Pagan $p\approx 0$ confirme que la variance des erreurs varie selon les valeurs prédites, ce qui rend les erreurs standards des coefficients non fiables.
+
+De plus, des observations influentes (comme les points 3804 et 1561) aggravent ces problèmes en biaisant les estimations.
+
+Pour pallier ces violations et garantir la validité scientifique des conclusions, nous avons procédé à une estimation robuste à l'hétéroscédasticité (HC1) de Huber-White, permettant d'obtenir des erreurs standards ajustées et des p-values plus fiables.
+
+Cette approche robuste a permis de confirmer la solidité de certains prédicteurs, notamment le statut d'oestrogène négatif ($p = 3.69 e^{-6}$) qui est le prédicteur le plus puissant, suivi de la taille de la tumeur ($p = 0.007$), le statut de progestérone négatif ($p = 0.034$) et le statut marital "marié" ($p = 0.022$). Les autres prédicteurs ont une significativité très fragiles.
+
+En conclusion, si le modèle $D$ initial présentait des lacunes statistiques réelles, l'adoption de l'inférence robuste HC1 permet de conclure avec certitude que le profil hormonal et la taille tumorale sont les piliers fondamentaux du pronostic de survie dans cet échantillon.
+
+Malgré l'apport de cette correction robuste, la faible qualité d'ajustement globale (R2 ajusté de 4.5%) et la violation d'hypothèses initiales confirment que le modèle reste statistiquement limité et peu prédictif.
+
+## Analyses complémentaires
+
+L'objectif de cette partie est de vérifier si l'impact d'une variable change en fonction d'une autre (effets croisés) ou si les relations sont non linéaires (transformations). Le Statut Estrogène Négatif (*`Estrogen.StatusNegative`*) étant le facteur le plus significatif, il est très pertinent de le cibler.
+
+### Effets croisés de variables
+
+-   Statut ER Négatif et Taille de la Tumeur
+
+L'hypothèse est que l'effet négatif de la taille de la tumeur (*`Tumor.Size`*) est plus prononcé ou différent chez les patientes ayant un Statut Estrogène Négatif (*`Estrogen.StatusNegative`*), par rapport à celles qui sont positives.
+
+```{r echo=FALSE}
+model_interaction_1 <- lm(log(Survival.Months) ~ Tumor.Size * Estrogen.StatusNegative + Reginol.Node.Positive + Marital.StatusMarried + Marital.StatusSeparated + X6th.StageIIIC + Grade3 + Grade4 + Progesterone.StatusNegative, data = data_encoding)
+
+summary(model_interaction_1)
+```
+
+Tumor.Size:Estrogen.StatusNegative est significatif ($p < 0.05$) : L'interaction est réelle, et l'effet de la taille tumorale doit être interprété séparément pour les deux groupes de statut ER.
+
+-   Interaction Statut ER Négatif et Envahissement Ganglionnaire
+
+Nous testons si le nombre de ganglions positifs (*`Reginol.Node.Positive`*) a un impact différent selon le statut ER.
+
+```{r echo=FALSE}
+model_interaction_2 <- lm(log(Survival.Months) ~ Reginol.Node.Positive * Estrogen.StatusNegative + Tumor.Size + Marital.StatusMarried + Marital.StatusSeparated + X6th.StageIIIC + Grade3 + Grade4 + Progesterone.StatusNegative, data = data_encoding)
+
+summary(model_interaction_2)
+```
+
+L'ajout du terme d'interactiol Reginol.Node.Positive:Estrogen.StatusNegative au Modèle $D$ est significatif.
+
+-   **Significativité de l'Interaction :** Le terme d'interaction ($\hat{\beta} ​= −0.0126471$) est statistiquement significatif au seuil de 1% ($p = 0.00636$).
+
+-   **Amélioration du Modèle :** Le R2 ajusté augmente légèrement, passant de 0.04508 (Modèle $D$) à 0.04662.
+
+-   **Interprétation Clinique :** Cet effet croisé négatif signifie que l'impact de l'envahissement ganglionnaire(*`Reginol.Node.Positive`*) sur la survie est aggravée spécifiquement chez les patientes ayant un *`StatutEstrogèneNégatif`*. Autrement dit, le nombre de ganglions positifs a un effet plus prononcé (plus négatif) sur le temps de survie lorsque le statut ER est négatif que lorsqu'il est positif.
+
+Ce modèle améliore le pouvoir explicatif et l'interprétation du modèle.
+
+### Transformation de Varibales / Effets non linéaires
+
+Nous avons utilisé *`Tumor.Size`* comme variable continue. Il est possible que son effet sur la survie ne soit pas linéaire. Par exemple, l'impact négatif peut s'accélérer pour les très grandes tumeurs. Nous pouvons tester la non-linéarité en ajoutant un terme quadratique (carré) à la variable : Tumor.Size2.
+
+```{r echo=FALSE}
+model_non_lineair <- lm(log(Survival.Months) ~ poly(Tumor.Size, 2) + Reginol.Node.Positive + Marital.StatusMarried + Marital.StatusSeparated + X6th.StageIIIC + Grade3 + Grade4 + Estrogen.StatusNegative + Progesterone.StatusNegative, data = data_encoding)
+
+summary(model_non_lineair)
+```
+
+**Test de Non-Linéarité :** L'ajout du terme quadratique poly(Tumor.Size, 2) est statistiquement significatif au seuil de 1% (p=0.00791).
+
+-   **Relation :** Le signe positif du coefficient quadratique (β​=0.4789) indique une relation entre la Tumor.Size et log(Survival.Months), suggérant que l'effet de la tumeur pourrait s'atténuer ou s'inverser pour les très grandes tailles dans ce modèle.
+
+-   **Faible Amélioration du Modèle :** Le R2 ajusté du modèle ne s'améliore pas forcément, restant à 0.04508, ce qui est similaire au Modèle D initial.
+
+-   **Stabilité des autres Facteurs :** Les facteurs clés comme Estrogen.StatusNegative (p=1.74e−09), Reginol.Node.Positive (p=0.01242) et Progesterone.StatusNegative (p=0.02066) conservent leur forte signification statistique.
+
+Bien que l'effet non linéaire de la Tumor.Size soit statistiquement prouvé, l'amélioration marginale du pouvoir explicatif suggère que l'ajout du terme quadratique n'est pas primordial, mais qu'il affine l'interprétation de l'effet de la taille.
+
+# Conclusion générale et perspectives
+
+## Rappel de la problématique et de la méthodologie
+
+L'objectif central de ce projet était de quantifier l'influence des déterminants cliniques, socio-démographiques et biologiques sur la durée de survie de la tumeur (en mois) des patientes diagnostiquées avec un cancer du sein. En nous appuyant sur une base de données issue du programme SEER, notre recherche a cherché à isoler l'effet marginal de variables clés telles que l'âge, la taille de la tumeur, le stade clinique et le statut des récepteurs hormonaux sur le temps de survie de la tumeur (exprimé en mois).
+
+Pour répondre à cette problématique, nous avons adopté une démarche économétrique rigoureuse s'articulant autour de la régression linéaire multiple. Notre méthodologie a progressé selon les étapes suivantes :
+
+-   Analyse des données : A partir d'un échantillon initial de 4 024 patientes, nous avons procédé à une sélection de 9 variables essentielles. Cette sélection nous a ensuite permis de procéder à l'analyse descriptive univariée et bivariée des données.
+
+-   Arbitrage de modèles : Nous avons construit et mis en concurrence plusieurs modèles (MCO classique, modèle réduit, modèle avec interactions). Le modèle D (Log-MCO réduit) a été retenu comme étant le modèle le plus efficient.
+
+-   Validation et robustesse : Nous avons soumis notre modèle à des tests pour vérifier les différentes hypothèses des Moindres Carrés Ordinaires (MCO). Nous avons donc effectué plusieurs tests tels que le test de Jarque-Bera pour la normalité ou encore le test de Breusch-Pagan pour l'homoscédasticité.
+
+-   Correction statistique : Face à la détection d'une hétéroscédasticité significative, nous avons appliqué une estimation robuste de Huber-White (HC1). Cette étape a été cruciale pour garantir la fiabilité de nos p-values et confirmer l'effet de chaque déterminant sur notre variable à expliquer.
+
+-   Analyse complémentaire : Nous avons vérifié si l'impact d'une variable change en fonction d'une autre (effets croisés) ou si les relations sont non linéaires (transformations). Cette partie permet d'affiner l'interprétation du modèle.
+
+Cette approche nous a permis d'effectuer une analyse économétrique structurée, capable de hiérarchiser les facteurs de survie selon leur significativité statistique et leur robustesse.
+
+## Synthèse des résultats principaux
+
+Nos analyses économétriques ont permis de dégager trois conclusions majeures :
+
+-   **L'importance des marqueurs biologiques** : Le statut des récepteurs hormonaux s'est révélé être le facteur le plus déterminant. En particulier, le Statut Estrogène Négatif réduit de manière significative et robuste l'espérance de survie.
+
+-   **L'impact des caractéristiques cliniques** : La taille de la tumeur et l'envahissement ganglionnaire (nombre de ganglions positifs) ont une influence négative directe sur la survie. Nous avons également démontré que cette relation n'est pas simplement linéaire, mais que l'impact de la taille tumorale s'accentue pour les cas les plus sévères.
+
+-   **La synergie des facteurs** : L’apport principal de nos analyses complémentaires montre que ces variables ne sont pas isolées. Le statut hormonal agit comme un modulateur central : par exemple, un envahissement ganglionnaire est statistiquement plus grave chez une patiente ayant un statut estrogène négatif.
+
+En résumé, bien que les facteurs cliniques soient essentiels, c'est leur interaction avec le profil biologique (ER/PR) qui permet de définir le pronostic le plus précis pour la patiente.
+
+## Limites et perspectives d'améliorations
+
+Ce mémoire apporte une contribution à la fois méthodologique et analytique à l'étude de la survie des patientes atteintes d'un cancer du sein, bien que les résultats doivent être interprétés avec prudence.
+
+Il est important de souligner que les données utilisées, extraites de la plateforme Kaggle, présentent certaines limites qualitatives qui ont impacté la puissance explicative de nos modèles. Le faible coefficient de détermination (R2 ajusté d'environ 4,5%) suggère que de nombreuses variables cliniques cruciales ou des facteurs environnementaux manquent à l'appel dans ce jeu de données. Ces résultats "modestes" illustrent la difficulté de modéliser des phénomènes biologiques complexes avec des bases de données secondaires parfois incomplètes ou manquant de précision.
+
+La principale piste d'amélioration pour ce travail réside dans l'enrichissement de la base de données. Pour dépasser les limites rencontrées avec les données de Kaggle, les recherches futures devraient :
+
+-   **Intégrer des variables manquantes** : L'ajout de données sur les traitements suivis (chimiothérapie, radiothérapie), les antécédents génétiques ou le mode de vie permettrait d'augmenter significativement le pouvoir explicatif du modèle.
+
+-   **Affiner la précision des mesures** : Une base de données plus complète aiderait à mieux comprendre pourquoi notre R2 actuel est faible, en capturant des facteurs biologiques qui ne sont pas présents dans le jeu de données actuel.
+
+-   **Utiliser des sources de données certifiées** : S'appuyer sur des registres hospitaliers ou des bases de données médicales plus détaillées permettrait de valider les interactions que nous avons observées avec une plus grande précision statistique.
+
+En résumé, l'accès à des données plus riches est l'étape indispensable pour transformer nos observations actuelles en un outil de prédiction plus performant.
+
+# Bibliographie - Source des données
+
+## Comparaison avec la littérature scientifique
+
+Dans le cadre de notre projet, nous avons choisi de nous appuyer sur l’article de Donegan (1992), « [Prognostic factors: Stage and receptor status in breast cancer]{.underline} », publié dans la revue Cancer, afin d’étayer et de mettre en perspective nos résultats.
+
+L'analyse de nos résultats rejoint les conclusions de l'article de Donegan (1992) concernant les facteurs influencent la survie. En accord avec l'auteur, nos estimations confirment que les caractéristiques anatomiques de la tumeur sont les prédicteurs les plus puissants : le stade clinique et la taille de la tumeur présentent une forte significativité statistique. Cette convergence avec les travaux de Donegan valide notre démarche économétrique et démontre que, malgré l'évolution des données, la structure fondamentale des déterminants de survie reste stable dans le temps.
+
+Toutefois, une nuance importante apparaît concernant le rôle des récepteurs hormonaux. Alors que Donegan qualifie l'influence des récepteurs d'œstrogène (ER) d'important pour le choix du traitement hormonal et est pertinent sur le plan pronostique, les récepteurs ER et PR sont des indicateurs peu fiables pour le pronostic final.
+
+A l'inverse, notre modèle montre que le statut ER demeure une variable majeure et significative. Cette différence s'explique probablement par les progrès médicaux réalisés depuis les années 90 : l'apparition de traitements ciblés a considérablement amélioré le pronostic des patientes ER+, creusant l'écart de survie avec les patientes ER-. Ainsi, là où Donegan voyait une contribution secondaire, nos résultats suggèrent que ces variables biologiques sont aujourd'hui des piliers incontournables de l'analyse de survie.
+
+## Sources des données
+
+### Base de données principale
+
+National Cancer Institute (NCI). (2017). *SEER Breast Cancer Data*. Récupéré de :
+
+-   Kaggle : <https://www.kaggle.com/datasets/reihanenamdari/breast-cancer/data>
+
+-   Site officiel du jeu de données :
+
+    -   SEER Breast Cancer Data : <https://cancer.ubrite.org/data-sets/>
+
+    -   Zenodo : <https://zenodo.org/records/5120960>
+
+Cette base de données contient des informations cliniques, socio-démographiques et biologiques sur des patientes atteintes de cancer du sein, utilisées pour analyser les facteurs influençant la durée de survie.
+
+### Référence scientifique
+
+Donegan, W. L. (1992). Prognostic factors: Stage and receptor status in breast cancer. Cancer, (Volume 70, Issue S4), 1755-1760. <https://acsjournals.onlinelibrary.wiley.com/doi/abs/10.1002/1097-0142%2819920915%2970%3A4%20%3C1755%3A%3AAID-CNCR2820701617%3E3.0.CO%3B2-G>
+
+Cet article scientifique explore les facteurs pronostiques du cancer du sein, notamment le stade de la maladie et le statut des récepteurs hormonaux, et a servi de référence pour l'interprétation des variables cliniques et biologiques.
+
+### Assistance technique et rédactionnelle
+
+OpenAI / Google. Assistance à la compréhension de certaines notions, à la rédaction et à l'analyse statistique.
